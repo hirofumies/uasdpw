@@ -1,7 +1,7 @@
 <?php
 session_start();
 require_once 'config.php';
-require_once 'functions.php';
+require_once 'functions.php'; // Add this line
 
 $message = "";
 $mahasiswa_id = null;
@@ -22,6 +22,7 @@ if (isset($_POST['action']) && $_POST['action'] == 'register' && $_SERVER["REQUE
     
     if (!empty($nim) && !empty($nama) && !empty($kelas) && !empty($prodi)) {
         try {
+            // Pastikan urutan parameter sesuai dengan urutan kolom dalam INSERT
             $stmt = $pdo->prepare("INSERT INTO mahasiswa (nim, nama, kelas, prodi) VALUES (?, ?, ?, ?)");
             $stmt->execute([$nim, $nama, $kelas, $prodi]);
             
@@ -44,7 +45,7 @@ if (isset($_POST['action']) && $_POST['action'] == 'register' && $_SERVER["REQUE
 // Proses upload file
 if (isset($_POST['action']) && $_POST['action'] == 'upload' && $_SERVER["REQUEST_METHOD"] == "POST") {
     if (isset($_SESSION['mahasiswa_id']) && isset($_FILES["fileToUpload"])) {
-        $message = uploadFile($_FILES["fileToUpload"], $_SESSION['mahasiswa_id'], $pdo);
+        $message = uploadFile($_FILES["fileToUpload"], $_SESSION['nim'], $_SESSION['nama'], $_SESSION['kelas'], $_SESSION['prodi'], $pdo);
     } else {
         $message = "Silakan daftar terlebih dahulu sebelum upload file.";
     }
