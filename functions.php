@@ -27,19 +27,73 @@ function registerMahasiswa($nim, $nama, $kelas, $prodi, $pdo) {
 }
 
 function uploadFile($file, $nim, $nama, $kelas, $prodi, $pdo) {
-    $target_dir = "uploads/";
+    // Try multiple possible upload directories
+    $possible_dirs = [
+        "uploads/",
+        "./uploads/", 
+        "/tmp/uploads/",
+        getcwd() . "/uploads/"
+    ];
+    
+    $target_dir = null;
+    $writable_dir = null;
+    
+    // Find a writable directory
+    foreach ($possible_dirs as $dir) {
+        if (is_dir($dir) && is_writable($dir)) {
+            $target_dir = $dir;
+            $writable_dir = $dir;
+            break;
+        }
+    }
+    
+    // If no existing writable directory, try to create one
+    if (!$target_dir) {
+        foreach ($possible_dirs as $dir) {
+            if (@mkdir($dir, 0755, true)) {
+                $target_dir = $dir;
+                $writable_dir = $dir;
+                break;
+            }
+        }
+    }
+    
+    // If still no directory, use temp directory as fallback
+    if (!$target_dir) {
+        $target_dir = sys_get_temp_dir() . "/uploads/";
+        if (!is_dir($target_dir)) {
+            @mkdir($target_dir, 0755, true);
+        }
+        $writable_dir = $target_dir;
+    }
+    
+    // Final check if we have a usable directory
+    if (!is_dir($target_dir) || !is_writable($target_dir)) {
+        return "Error: Tidak dapat membuat folder upload. Server permission issue.";
+    }
+    
     $file_extension = strtolower(pathinfo($file["name"], PATHINFO_EXTENSION));
     $allowed_extensions = array("pdf", "doc", "docx", "txt", "jpg", "png");
     
     if (!in_array($file_extension, $allowed_extensions)) {
-        return "Format file tidak diizinkan.";
+        return "Format file tidak diizinkan. Gunakan: PDF, DOC, DOCX, TXT, JPG, PNG";
+    }
+    
+    // Check file size (5MB limit)
+    if ($file["size"] > 5 * 1024 * 1024) {
+        return "File terlalu besar. Maksimal 5MB.";
     }
     
     $new_filename = uniqid() . '_' . time() . '.' . $file_extension;
     $target_file = $target_dir . $new_filename;
     
-    if (!is_dir($target_dir)) {
-        mkdir($target_dir, 0755, true);
+    // Additional checks
+    if ($file["error"] !== UPLOAD_ERR_OK) {
+        return "Upload error: " . $file["error"];
+    }
+    
+    if (!is_uploaded_file($file["tmp_name"])) {
+        return "File tidak valid.";
     }
     
     if (move_uploaded_file($file["tmp_name"], $target_file)) {
@@ -53,7 +107,7 @@ function uploadFile($file, $nim, $nama, $kelas, $prodi, $pdo) {
             $stmt->execute([$mahasiswa_id, $new_filename, $file["name"], $file["size"], $status]);
             
             $pdo->commit();
-            return "File berhasil diupload.";
+            return "File berhasil diupload ke: " . $writable_dir;
             
         } catch (Exception $e) {
             $pdo->rollBack();
@@ -63,7 +117,7 @@ function uploadFile($file, $nim, $nama, $kelas, $prodi, $pdo) {
             return "Gagal menyimpan data: " . $e->getMessage();
         }
     } else {
-        return "Upload file gagal.";
+        return "Upload file gagal. Check permissions dan disk space.";
     }
 }
 ?>
