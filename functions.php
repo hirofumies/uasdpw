@@ -12,15 +12,15 @@ function validateStatus($status) {
 }
 
 function registerMahasiswa($nim, $nama, $kelas, $prodi, $pdo) {
-    $check_stmt = $pdo->prepare("SELECT id FROM mahasiswa WHERE nim = ?");
+    $check_stmt = $pdo->prepare("SELECT id FROM mahasiswa_v2 WHERE nim = ?");
     $check_stmt->execute([$nim]);
     
     if ($check_stmt->rowCount() == 0) {
-        $stmt = $pdo->prepare("INSERT INTO mahasiswa (nim, nama, kelas, prodi, created_at, updated_at) VALUES (?, ?, ?, ?, NOW(), NOW())");
+        $stmt = $pdo->prepare("INSERT INTO mahasiswa_v2 (nim, nama, kelas, prodi, created_at, updated_at) VALUES (?, ?, ?, ?, CURDATE(), CURDATE())");
         $stmt->execute([clean_input($nim), clean_input($nama), clean_input($kelas), clean_input($prodi)]);
         return $pdo->lastInsertId();
     } else {
-        $stmt = $pdo->prepare("UPDATE mahasiswa SET nama = ?, kelas = ?, prodi = ?, updated_at = NOW() WHERE nim = ?");
+        $stmt = $pdo->prepare("UPDATE mahasiswa_v2 SET nama = ?, kelas = ?, prodi = ?, updated_at = CURDATE() WHERE nim = ?");
         $stmt->execute([clean_input($nama), clean_input($kelas), clean_input($prodi), clean_input($nim)]);
         return $check_stmt->fetch()['id'];
     }
@@ -103,8 +103,9 @@ function uploadFile($file, $nim, $nama, $kelas, $prodi, $pdo) {
             $mahasiswa_id = registerMahasiswa($nim, $nama, $kelas, $prodi, $pdo);
             
             $status = validateStatus('active');
-            $stmt = $pdo->prepare("INSERT INTO uploads (mahasiswa_id, nama_file, file_asli, ukuran_file, status, tanggal_upload) VALUES (?, ?, ?, ?, ?, NOW())");
-            $stmt->execute([$mahasiswa_id, $new_filename, $file["name"], $file["size"], $status]);
+            // Updated query untuk uploads_v2 dengan tipe_file
+            $stmt = $pdo->prepare("INSERT INTO uploads_v2 (mahasiswa_id, nama_file, file_asli, tipe_file, ukuran_file, status) VALUES (?, ?, ?, ?, ?, ?)");
+            $stmt->execute([$mahasiswa_id, $new_filename, $file["name"], $file_extension, $file["size"], $status]);
             
             $pdo->commit();
             return "File berhasil diupload ke: " . $writable_dir;
