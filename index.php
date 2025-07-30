@@ -6,8 +6,6 @@ require_once 'functions.php';
 $message = "";
 $mahasiswa_id = null;
 
-// Tidak ada auto-fix lagi, cukup tampilkan yang aman
-
 // Handle logout
 if (isset($_GET['logout'])) {
     session_destroy();
@@ -56,23 +54,9 @@ if (isset($_POST['action']) && $_POST['action'] == 'upload' && $_SERVER["REQUEST
 // Ambil data uploads untuk ditampilkan - UPDATED ke uploads_v2
 $uploads = [];
 if (isset($_SESSION['mahasiswa_id'])) {
-    try {
-        // Debug: cek dulu apakah ada data
-        $debug_stmt = $pdo->prepare("SELECT COUNT(*) as total FROM uploads_v2");
-        $debug_stmt->execute();
-        $total_files = $debug_stmt->fetch()['total'];
-        
-        $stmt = $pdo->prepare("SELECT * FROM uploads_v2 WHERE mahasiswa_id = ? ORDER BY id DESC");
-        $stmt->execute([$_SESSION['mahasiswa_id']]);
-        $uploads = $stmt->fetchAll();
-        
-        // Debug info
-        if (empty($uploads) && $total_files > 0) {
-            $message .= " DEBUG: Ada $total_files file di database tapi tidak cocok dengan mahasiswa_id: " . $_SESSION['mahasiswa_id'];
-        }
-    } catch(PDOException $e) {
-        $message = "Error mengambil data uploads: " . $e->getMessage();
-    }
+    $stmt = $pdo->prepare("SELECT * FROM uploads_v2 WHERE mahasiswa_id = ? ORDER BY tanggal_upload DESC");
+    $stmt->execute([$_SESSION['mahasiswa_id']]);
+    $uploads = $stmt->fetchAll();
 }
 ?>
 
@@ -189,6 +173,7 @@ if (isset($_SESSION['mahasiswa_id'])) {
                         <strong>📄 <?php echo htmlspecialchars($upload['file_asli']); ?></strong>
                         <small>Tipe: <?php echo strtoupper($upload['tipe_file']); ?></small>
                         <small>Ukuran: <?php echo number_format($upload['ukuran_file']/1024, 2); ?> KB</small>
+                        <small>Tanggal Upload: <?php echo date('d/m/Y', strtotime($upload['tanggal_upload'])); ?></small>
                     </div>
                     <div class="file-actions">
                         <a href="uploads/<?php echo htmlspecialchars($upload['nama_file']); ?>" 
@@ -217,7 +202,6 @@ if (isset($_SESSION['mahasiswa_id'])) {
         <footer>
             <p>&copy; 2025 - Project Desain dan Pemrograman Web</p>
             <p>Mendukung: Array, Form Processing, File Upload, Session Management, Database MySQL</p>
-            <p class="waktu">Waktu akses: Rabu, 30 Juli 2025 pukul 09:59:05</p>
         </footer>
     </div>
 
