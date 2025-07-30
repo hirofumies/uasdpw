@@ -6,6 +6,24 @@ require_once 'functions.php';
 $message = "";
 $mahasiswa_id = null;
 
+// Satu kali perbaikan untuk data yang NULL
+if (isset($_GET['fix_dates'])) {
+    try {
+        // Update semua tanggal yang NULL atau 0000-00-00
+        $stmt = $pdo->prepare("UPDATE uploads_v2 SET tanggal_upload = NOW() WHERE tanggal_upload IS NULL OR tanggal_upload = '0000-00-00 00:00:00'");
+        $stmt->execute();
+        
+        $affected = $stmt->rowCount();
+        $message = "Berhasil memperbaiki $affected record tanggal upload!";
+        
+        // Redirect untuk menghindari refresh berulang
+        header("Location: index.php");
+        exit();
+    } catch(PDOException $e) {
+        $message = "Error: " . $e->getMessage();
+    }
+}
+
 // Handle logout
 if (isset($_GET['logout'])) {
     session_destroy();
@@ -173,7 +191,16 @@ if (isset($_SESSION['mahasiswa_id'])) {
                         <strong>📄 <?php echo htmlspecialchars($upload['file_asli']); ?></strong>
                         <small>Tipe: <?php echo strtoupper($upload['tipe_file']); ?></small>
                         <small>Ukuran: <?php echo number_format($upload['ukuran_file']/1024, 2); ?> KB</small>
-                        <small>Tanggal Upload: <?php echo date('d/m/Y', strtotime($upload['tanggal_upload'])); ?></small>
+                        <small>Tanggal Upload: 
+                        <?php 
+                        $tanggal = $upload['tanggal_upload'];
+                        if (!empty($tanggal) && $tanggal != '0000-00-00 00:00:00') {
+                            echo date('d/m/Y H:i', strtotime($tanggal));
+                        } else {
+                            echo '<a href="?fix_dates=1" style="color: red;">Perbaiki Tanggal</a>';
+                        }
+                        ?>
+                        </small>
                     </div>
                     <div class="file-actions">
                         <a href="uploads/<?php echo htmlspecialchars($upload['nama_file']); ?>" 
@@ -202,6 +229,7 @@ if (isset($_SESSION['mahasiswa_id'])) {
         <footer>
             <p>&copy; 2025 - Project Desain dan Pemrograman Web</p>
             <p>Mendukung: Array, Form Processing, File Upload, Session Management, Database MySQL</p>
+            <p class="waktu">Waktu akses: Rabu, 30 Juli 2025 pukul 09:59:05</p>
         </footer>
     </div>
 
