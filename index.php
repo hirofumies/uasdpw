@@ -1,7 +1,7 @@
 <?php
 session_start();
 require_once 'config.php';
-require_once 'functions.php'; // Add this line
+require_once 'functions.php';
 
 $message = "";
 $mahasiswa_id = null;
@@ -13,7 +13,7 @@ if (isset($_GET['logout'])) {
     exit();
 }
 
-// Proses form mahasiswa
+// Proses form mahasiswa - UPDATED ke mahasiswa_v2
 if (isset($_POST['action']) && $_POST['action'] == 'register' && $_SERVER["REQUEST_METHOD"] == "POST") {
     $nama = clean_input($_POST["nama"]);
     $nim = clean_input($_POST["nim"]);
@@ -22,8 +22,8 @@ if (isset($_POST['action']) && $_POST['action'] == 'register' && $_SERVER["REQUE
     
     if (!empty($nim) && !empty($nama) && !empty($kelas) && !empty($prodi)) {
         try {
-            // Pastikan urutan parameter sesuai dengan urutan kolom dalam INSERT
-            $stmt = $pdo->prepare("INSERT INTO mahasiswa (nim, nama, kelas, prodi) VALUES (?, ?, ?, ?)");
+            // Updated query ke mahasiswa_v2
+            $stmt = $pdo->prepare("INSERT INTO mahasiswa_v2 (nim, nama, kelas, prodi, created_at, updated_at) VALUES (?, ?, ?, ?, CURDATE(), CURDATE())");
             $stmt->execute([$nim, $nama, $kelas, $prodi]);
             
             $mahasiswa_id = $pdo->lastInsertId();
@@ -51,10 +51,10 @@ if (isset($_POST['action']) && $_POST['action'] == 'upload' && $_SERVER["REQUEST
     }
 }
 
-// Ambil data uploads untuk ditampilkan
+// Ambil data uploads untuk ditampilkan - UPDATED ke uploads_v2
 $uploads = [];
 if (isset($_SESSION['mahasiswa_id'])) {
-    $stmt = $pdo->prepare("SELECT * FROM uploads WHERE mahasiswa_id = ? ORDER BY tanggal_upload DESC");
+    $stmt = $pdo->prepare("SELECT * FROM uploads_v2 WHERE mahasiswa_id = ? ORDER BY tanggal_upload DESC");
     $stmt->execute([$_SESSION['mahasiswa_id']]);
     $uploads = $stmt->fetchAll();
 }
@@ -171,8 +171,9 @@ if (isset($_SESSION['mahasiswa_id'])) {
                 <div class="upload-item">
                     <div class="file-info">
                         <strong>📄 <?php echo htmlspecialchars($upload['file_asli']); ?></strong>
+                        <small>Tipe: <?php echo strtoupper($upload['tipe_file']); ?></small>
                         <small>Ukuran: <?php echo number_format($upload['ukuran_file']/1024, 2); ?> KB</small>
-                        <small>Tanggal Upload: <?php echo date('d/m/Y H:i:s', strtotime($upload['tanggal_upload'])); ?></small>
+                        <small>Tanggal Upload: <?php echo date('d/m/Y', strtotime($upload['tanggal_upload'])); ?></small>
                     </div>
                     <div class="file-actions">
                         <a href="uploads/<?php echo htmlspecialchars($upload['nama_file']); ?>" 
