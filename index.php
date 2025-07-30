@@ -6,6 +6,9 @@ require_once 'functions.php';
 $message = "";
 $mahasiswa_id = null;
 
+// Pastikan direktori upload ada saat aplikasi dimulai
+ensureUploadDirectory();
+
 // Handle logout
 if (isset($_GET['logout'])) {
     session_destroy();
@@ -22,18 +25,25 @@ if (isset($_POST['action']) && $_POST['action'] == 'register' && $_SERVER["REQUE
     
     if (!empty($nim) && !empty($nama) && !empty($kelas) && !empty($prodi)) {
         try {
-            // Updated query ke mahasiswa_v2
-            $stmt = $pdo->prepare("INSERT INTO mahasiswa_v2 (nim, nama, kelas, prodi, created_at, updated_at) VALUES (?, ?, ?, ?, CURDATE(), CURDATE())");
-            $stmt->execute([$nim, $nama, $kelas, $prodi]);
-            
-            $mahasiswa_id = $pdo->lastInsertId();
-            $_SESSION['mahasiswa_id'] = $mahasiswa_id;
-            $_SESSION['nama'] = $nama;
-            $_SESSION['nim'] = $nim;
-            $_SESSION['kelas'] = $kelas;
-            $_SESSION['prodi'] = $prodi;
-            
-            $message = "Data mahasiswa berhasil disimpan!";
+            // Cek apakah NIM sudah ada
+            $check_stmt = $pdo->prepare("SELECT id FROM mahasiswa_v2 WHERE nim = ?");
+            $check_stmt->execute([$nim]);
+            if ($check_stmt->fetch()) {
+                $message = "Error: NIM sudah terdaftar. Gunakan NIM yang berbeda.";
+            } else {
+                // Updated query ke mahasiswa_v2
+                $stmt = $pdo->prepare("INSERT INTO mahasiswa_v2 (nim, nama, kelas, prodi, created_at, updated_at) VALUES (?, ?, ?, ?, NOW(), NOW())");
+                $stmt->execute([$nim, $nama, $kelas, $prodi]);
+                
+                $mahasiswa_id = $pdo->lastInsertId();
+                $_SESSION['mahasiswa_id'] = $mahasiswa_id;
+                $_SESSION['nama'] = $nama;
+                $_SESSION['nim'] = $nim;
+                $_SESSION['kelas'] = $kelas;
+                $_SESSION['prodi'] = $prodi;
+                
+                $message = "Data mahasiswa berhasil disimpan!";
+            }
         } catch(PDOException $e) {
             $message = "Error: " . $e->getMessage();
         }
@@ -45,7 +55,32 @@ if (isset($_POST['action']) && $_POST['action'] == 'register' && $_SERVER["REQUE
 // Proses upload file
 if (isset($_POST['action']) && $_POST['action'] == 'upload' && $_SERVER["REQUEST_METHOD"] == "POST") {
     if (isset($_SESSION['mahasiswa_id']) && isset($_FILES["fileToUpload"])) {
-        $message = uploadFile($_FILES["fileToUpload"], $_SESSION['nim'], $_SESSION['nama'], $_SESSION['kelas'], $_SESSION['prodi'], $pdo);
+        // Validasi tambahan untuk upload
+        if ($_FILES["fileToUpload"]["error"] == UPLOAD_ERR_OK) {
+            $message = uploadFile($_FILES["fileToUpload"], $_SESSION['nim'], $_SESSION['nama'], $_SESSION['kelas'], $_SESSION['prodi'], $pdo);
+        } else {
+            switch ($_FILES["fileToUpload"]["error"]) {
+                case UPLOAD_ERR_INI_SIZE:
+                case UPLOAD_ERR_FORM_SIZE:
+                    $message = "Error: File terlalu besar.";
+                    break;
+                case UPLOAD_ERR_PARTIAL:
+                    $message = "Error: File hanya terupload sebagian.";
+                    break;
+                case UPLOAD_ERR_NO_FILE:
+                    $message = "Error: Tidak ada file yang dipilih.";
+                    break;
+                case UPLOAD_ERR_NO_TMP_DIR:
+                    $message = "Error: Direktori temporary tidak ditemukan.";
+                    break;
+                case UPLOAD_ERR_CANT_WRITE:
+                    $message = "Error: Gagal menulis file ke disk.";
+                    break;
+                default:
+                    $message = "Error: Terjadi kesalahan saat upload file.";
+                    break;
+            }
+        }
     } else {
         $message = "Silakan daftar terlebih dahulu sebelum upload file.";
     }
@@ -54,9 +89,13 @@ if (isset($_POST['action']) && $_POST['action'] == 'upload' && $_SERVER["REQUEST
 // Ambil data uploads untuk ditampilkan - UPDATED ke uploads_v2
 $uploads = [];
 if (isset($_SESSION['mahasiswa_id'])) {
-    $stmt = $pdo->prepare("SELECT * FROM uploads_v2 WHERE mahasiswa_id = ? ORDER BY tanggal_upload DESC");
-    $stmt->execute([$_SESSION['mahasiswa_id']]);
-    $uploads = $stmt->fetchAll();
+    try {
+        $stmt = $pdo->prepare("SELECT * FROM uploads_v2 WHERE mahasiswa_id = ? ORDER BY tanggal_upload DESC");
+        $stmt->execute([$_SESSION['mahasiswa_id']]);
+        $uploads = $stmt->fetchAll();
+    } catch(PDOException $e) {
+        error_log("Error fetching uploads: " . $e->getMessage());
+    }
 }
 ?>
 
@@ -131,11 +170,11 @@ if (isset($_SESSION['mahasiswa_id'])) {
         
         <!-- Info Mahasiswa -->
         <div class="info-section">
-            <h2>🪪 Selamat Datang, <?php echo $_SESSION['nama']; ?>!</h2>
+            <h2>🪪 Selamat Datang, <?php echo htmlspecialchars($_SESSION['nama']); ?>!</h2>
             <div class="student-info">
-                <p><strong>NIM:</strong> <?php echo $_SESSION['nim']; ?></p>
-                <p><strong>Kelas:</strong> <?php echo $_SESSION['kelas']; ?></p>
-                <p><strong>Program Studi:</strong> <?php echo $_SESSION['prodi']; ?></p>
+                <p><strong>NIM:</strong> <?php echo htmlspecialchars($_SESSION['nim']); ?></p>
+                <p><strong>Kelas:</strong> <?php echo htmlspecialchars($_SESSION['kelas']); ?></p>
+                <p><strong>Program Studi:</strong> <?php echo htmlspecialchars($_SESSION['prodi']); ?></p>
             </div>
             <p>Anda dapat mengupload tugas di bawah ini. File yang diupload akan tersimpan dengan aman.</p>
             <a href="?logout=true" class="btn btn-secondary">🚪 Logout</a>
@@ -148,15 +187,16 @@ if (isset($_SESSION['mahasiswa_id'])) {
             
             <form method="post" action="<?php echo htmlspecialchars($_SERVER["PHP_SELF"]); ?>" enctype="multipart/form-data">
                 <input type="hidden" name="action" value="upload">
+                <input type="hidden" name="MAX_FILE_SIZE" value="5000000">
                 
                 <div class="form-group">
                     <label for="fileToUpload">Pilih File Tugas:</label>
                     <input type="file" id="fileToUpload" name="fileToUpload" required 
-                           accept=".pdf,.doc,.docx,.txt,.jpg,.png">
+                           accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png">
                     <small>Format yang diperbolehkan: PDF, DOC, DOCX, TXT, JPG, PNG (Maksimal 5MB)</small>
                 </div>
                 
-                <button type="submit" class="btn btn-primary">Upload File</button>
+                <button type="submit" class="btn btn-primary">📤 Upload File</button>
             </form>
         </div>
 
@@ -171,13 +211,13 @@ if (isset($_SESSION['mahasiswa_id'])) {
                 <div class="upload-item">
                     <div class="file-info">
                         <strong>📄 <?php echo htmlspecialchars($upload['file_asli']); ?></strong>
-                        <small>Tipe: <?php echo strtoupper($upload['tipe_file']); ?></small>
+                        <small>Tipe: <?php echo strtoupper(htmlspecialchars($upload['tipe_file'])); ?></small>
                         <small>Ukuran: <?php echo number_format($upload['ukuran_file']/1024, 2); ?> KB</small>
-                        <small>Tanggal Upload: <?php echo date('d/m/Y', strtotime($upload['tanggal_upload'])); ?></small>
+                        <small>Tanggal Upload: <?php echo date('d/m/Y H:i', strtotime($upload['tanggal_upload'])); ?></small>
                     </div>
                     <div class="file-actions">
                         <a href="uploads/<?php echo htmlspecialchars($upload['nama_file']); ?>" 
-                           target="_blank" class="btn btn-small btn-view">Lihat</a>
+                           target="_blank" class="btn btn-small btn-view">👁️ Lihat</a>
                         <a href="uploads/<?php echo htmlspecialchars($upload['nama_file']); ?>" 
                            download="<?php echo htmlspecialchars($upload['file_asli']); ?>" 
                            class="btn btn-small btn-download">📥 Download</a>
