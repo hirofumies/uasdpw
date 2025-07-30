@@ -4,16 +4,14 @@ function uploadFile($file, $nim, $nama, $kelas, $prodi, $pdo) {
     $uploadOk = 1;
     $message = "";
     
-    // Pastikan direktori uploads ada - dengan pengecekan permission yang lebih baik
+    // Periksa apakah direktori uploads ada dan dapat ditulis
     if (!file_exists($target_dir)) {
-        if (!mkdir($target_dir, 0755, true)) {
-            return "Error: Tidak dapat membuat direktori uploads. Periksa permission server.";
-        }
+        return "Error: Direktori uploads tidak ditemukan. Silakan buat direktori 'uploads' secara manual di server.";
     }
     
     // Periksa apakah direktori dapat ditulis
     if (!is_writable($target_dir)) {
-        return "Error: Direktori uploads tidak dapat ditulis. Periksa permission direktori.";
+        return "Error: Direktori uploads tidak dapat ditulis. Periksa permission direktori (chmod 755 uploads/).";
     }
     
     // Validasi file upload
@@ -105,24 +103,29 @@ function clean_input($data) {
     return $data;
 }
 
-// Fungsi untuk mengecek dan membuat direktori jika diperlukan
+// Fungsi untuk mengecek direktori upload (tanpa membuat otomatis)
 function ensureUploadDirectory() {
     $upload_dir = "uploads/";
     
+    // Hanya cek apakah direktori ada, tidak membuat otomatis
     if (!file_exists($upload_dir)) {
-        if (!mkdir($upload_dir, 0755, true)) {
-            error_log("Failed to create upload directory: " . $upload_dir);
-            return false;
-        }
+        error_log("Upload directory does not exist: " . $upload_dir);
+        return false;
     }
     
-    // Buat file .htaccess untuk keamanan
+    // Cek apakah direktori dapat ditulis
+    if (!is_writable($upload_dir)) {
+        error_log("Upload directory is not writable: " . $upload_dir);
+        return false;
+    }
+    
+    // Buat file .htaccess untuk keamanan jika memungkinkan
     $htaccess_file = $upload_dir . ".htaccess";
-    if (!file_exists($htaccess_file)) {
+    if (!file_exists($htaccess_file) && is_writable($upload_dir)) {
         $htaccess_content = "Options -Indexes\n";
         $htaccess_content .= "Options -ExecCGI\n";
         $htaccess_content .= "AddHandler cgi-script .php .pl .py .jsp .asp .sh .cgi\n";
-        file_put_contents($htaccess_file, $htaccess_content);
+        @file_put_contents($htaccess_file, $htaccess_content);
     }
     
     return true;
