@@ -175,21 +175,6 @@ if (isset($_SESSION['mahasiswa_id'])) {
                         <strong>📄 <?php echo htmlspecialchars($upload['file_asli']); ?></strong>
                         <small>Tipe: <?php echo strtoupper($upload['tipe_file']); ?></small>
                         <small>Ukuran: <?php echo number_format($upload['ukuran_file']/1024, 2); ?> KB</small>
-                        <small>Tanggal Upload: 
-                        <?php 
-                        $tanggal = $upload['tanggal_upload'];
-                        if (!empty($tanggal) && $tanggal != '0000-00-00 00:00:00' && $tanggal != '0000-00-00') {
-                            $timestamp = strtotime($tanggal);
-                            if ($timestamp !== false && $timestamp > 0) {
-                                echo date('d/m/Y H:i', $timestamp);
-                            } else {
-                                echo 'Tanggal tidak valid';
-                            }
-                        } else {
-                            echo 'Tanggal tidak tersedia';
-                        }
-                        ?>
-                        </small>
                     </div>
                     <div class="file-actions">
                         <a href="uploads/<?php echo htmlspecialchars($upload['nama_file']); ?>" 
