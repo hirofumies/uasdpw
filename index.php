@@ -6,23 +6,7 @@ require_once 'functions.php';
 $message = "";
 $mahasiswa_id = null;
 
-// Satu kali perbaikan untuk data yang NULL
-if (isset($_GET['fix_dates'])) {
-    try {
-        // Update semua tanggal yang NULL atau 0000-00-00
-        $stmt = $pdo->prepare("UPDATE uploads_v2 SET tanggal_upload = NOW() WHERE tanggal_upload IS NULL OR tanggal_upload = '0000-00-00 00:00:00'");
-        $stmt->execute();
-        
-        $affected = $stmt->rowCount();
-        $message = "Berhasil memperbaiki $affected record tanggal upload!";
-        
-        // Redirect untuk menghindari refresh berulang
-        header("Location: index.php");
-        exit();
-    } catch(PDOException $e) {
-        $message = "Error: " . $e->getMessage();
-    }
-}
+// Tidak ada auto-fix lagi, cukup tampilkan yang aman
 
 // Handle logout
 if (isset($_GET['logout'])) {
@@ -194,10 +178,15 @@ if (isset($_SESSION['mahasiswa_id'])) {
                         <small>Tanggal Upload: 
                         <?php 
                         $tanggal = $upload['tanggal_upload'];
-                        if (!empty($tanggal) && $tanggal != '0000-00-00 00:00:00') {
-                            echo date('d/m/Y H:i', strtotime($tanggal));
+                        if (!empty($tanggal) && $tanggal != '0000-00-00 00:00:00' && $tanggal != '0000-00-00') {
+                            $timestamp = strtotime($tanggal);
+                            if ($timestamp !== false && $timestamp > 0) {
+                                echo date('d/m/Y H:i', $timestamp);
+                            } else {
+                                echo 'Tanggal tidak valid';
+                            }
                         } else {
-                            echo '<a href="?fix_dates=1" style="color: red;">Perbaiki Tanggal</a>';
+                            echo 'Tanggal tidak tersedia';
                         }
                         ?>
                         </small>
