@@ -56,9 +56,23 @@ if (isset($_POST['action']) && $_POST['action'] == 'upload' && $_SERVER["REQUEST
 // Ambil data uploads untuk ditampilkan - UPDATED ke uploads_v2
 $uploads = [];
 if (isset($_SESSION['mahasiswa_id'])) {
-    $stmt = $pdo->prepare("SELECT * FROM uploads_v2 WHERE mahasiswa_id = ? ORDER BY tanggal_upload DESC");
-    $stmt->execute([$_SESSION['mahasiswa_id']]);
-    $uploads = $stmt->fetchAll();
+    try {
+        // Debug: cek dulu apakah ada data
+        $debug_stmt = $pdo->prepare("SELECT COUNT(*) as total FROM uploads_v2");
+        $debug_stmt->execute();
+        $total_files = $debug_stmt->fetch()['total'];
+        
+        $stmt = $pdo->prepare("SELECT * FROM uploads_v2 WHERE mahasiswa_id = ? ORDER BY id DESC");
+        $stmt->execute([$_SESSION['mahasiswa_id']]);
+        $uploads = $stmt->fetchAll();
+        
+        // Debug info
+        if (empty($uploads) && $total_files > 0) {
+            $message .= " DEBUG: Ada $total_files file di database tapi tidak cocok dengan mahasiswa_id: " . $_SESSION['mahasiswa_id'];
+        }
+    } catch(PDOException $e) {
+        $message = "Error mengambil data uploads: " . $e->getMessage();
+    }
 }
 ?>
 
